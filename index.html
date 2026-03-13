@@ -1,0 +1,975 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Baby Ready"/>
+<meta name="theme-color" content="#f9f5f0"/>
+<title>Baby Ready — Our Checklist</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+
+<!-- ══ FIREBASE SDK ══════════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<style>
+/* ══ RESET & BASE ═══════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --bg:       #f9f5f0;
+  --surface:  #ffffff;
+  --surface2: #f3ede6;
+  --border:   #e8dfd5;
+  --text:     #1a1410;
+  --muted:    #9a8f84;
+  --accent:   #c07850;
+  --accent2:  #a05c38;
+  --green:    #4a9e6a;
+  --sage:     #8aab8a;
+  --blue:     #5b85c4;
+  --purple:   #9b72c4;
+  --pink:     #d47090;
+  --radius:   14px;
+  --shadow:   0 2px 16px rgba(0,0,0,.07);
+}
+html { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 16px;
+  min-height: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ══ SETUP SCREEN ═══════════════════════════════════════════════ */
+#setup-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 2rem; text-align: center; gap: 1rem;
+  background: var(--bg);
+}
+#setup-screen h2 { font-size: 1.2rem; color: var(--text); font-weight: 600; }
+#setup-screen p { font-size: .85rem; color: var(--muted); max-width: 340px; line-height: 1.6; }
+.setup-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.5rem; width: 100%; max-width: 380px;
+  box-shadow: var(--shadow); text-align: left; margin-top: .5rem;
+}
+.setup-box h3 { font-size: .9rem; font-weight: 700; color: var(--accent); margin-bottom: .75rem; letter-spacing: .03em; }
+.setup-box ol { padding-left: 1.2rem; }
+.setup-box li { font-size: .82rem; color: var(--muted); margin-bottom: .4rem; line-height: 1.5; }
+.setup-box code { background: var(--surface2); border-radius: 4px; padding: 1px 5px; font-size: .8rem; color: var(--text); }
+
+/* ══ AUTH SCREEN ════════════════════════════════════════════════ */
+#auth-screen {
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 2rem; text-align: center; gap: 1.5rem;
+}
+.app-icon { font-size: 3.5rem; line-height: 1; }
+.app-title { font-size: 1.6rem; font-weight: 700; color: var(--text); }
+.app-subtitle { font-size: .9rem; color: var(--muted); }
+.btn-google {
+  display: flex; align-items: center; gap: .75rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 50px; padding: .85rem 1.75rem;
+  font-size: .95rem; font-weight: 600; color: var(--text);
+  cursor: pointer; box-shadow: var(--shadow);
+  transition: box-shadow .2s, transform .1s; font-family: inherit;
+  text-decoration: none;
+}
+.btn-google:hover { box-shadow: 0 4px 20px rgba(0,0,0,.12); transform: translateY(-1px); }
+.btn-google:active { transform: translateY(0); }
+.btn-google svg { flex-shrink: 0; }
+
+/* ══ MAIN APP ═══════════════════════════════════════════════════ */
+#app { display: none; flex-direction: column; min-height: 100vh; }
+
+/* Header */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 1.25rem .85rem;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 50;
+}
+.header-left { display: flex; flex-direction: column; }
+.header-title { font-size: 1.15rem; font-weight: 700; color: var(--text); }
+.header-sub { font-size: .72rem; color: var(--muted); margin-top: 1px; }
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--accent); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .85rem; font-weight: 700; color: white;
+  overflow: hidden; flex-shrink: 0; border: none;
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Tab bar */
+.tabs {
+  display: flex; overflow-x: auto; gap: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  padding: 0 .5rem;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex-shrink: 0; padding: .75rem 1rem;
+  font-size: .78rem; font-weight: 600;
+  color: var(--muted); cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+  transition: color .2s, border-color .2s;
+  white-space: nowrap; background: none; border-top: none;
+  border-left: none; border-right: none; font-family: inherit;
+  display: flex; align-items: center; gap: .4rem;
+}
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-badge {
+  background: var(--surface2); color: var(--muted);
+  font-size: .65rem; font-weight: 700;
+  padding: 1px 6px; border-radius: 10px;
+  min-width: 20px; text-align: center;
+}
+.tab.active .tab-badge { background: rgba(192,120,80,.15); color: var(--accent); }
+
+/* Progress bar */
+.progress-wrap { padding: .85rem 1.25rem .4rem; }
+.progress-label {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: .75rem; color: var(--muted); margin-bottom: .5rem; font-weight: 500;
+}
+.progress-label strong { color: var(--text); }
+.progress-bar {
+  height: 6px; background: var(--border); border-radius: 10px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; border-radius: 10px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  transition: width .4s ease;
+}
+.progress-fill.done { background: linear-gradient(90deg, var(--green), #3a8a5a); }
+
+/* List content */
+.list-content { flex: 1; padding: .5rem 1rem 6rem; }
+
+/* Category label */
+.category-label {
+  font-size: .68rem; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+  padding: .9rem .25rem .4rem; margin-top: .25rem;
+}
+
+/* Item card */
+.item {
+  display: flex; align-items: flex-start; gap: .85rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: .9rem 1rem;
+  margin-bottom: .5rem; cursor: pointer;
+  transition: border-color .15s, opacity .2s;
+  position: relative;
+}
+.item:active { opacity: .85; }
+.item.done { opacity: .6; }
+.item.done .item-text { text-decoration: line-through; color: var(--muted); }
+
+.checkbox {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--border); flex-shrink: 0; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, border-color .15s;
+}
+.item.done .checkbox {
+  background: var(--green); border-color: var(--green);
+}
+.check-icon { display: none; }
+.item.done .check-icon { display: block; }
+
+.item-body { flex: 1; min-width: 0; }
+.item-text { font-size: .92rem; font-weight: 500; line-height: 1.4; }
+.item-meta { font-size: .72rem; color: var(--muted); margin-top: 3px; }
+
+.item-delete {
+  background: none; border: none; color: var(--border); cursor: pointer;
+  font-size: 1.1rem; padding: 0 0 0 .5rem; line-height: 1;
+  opacity: 0; transition: opacity .2s, color .2s; flex-shrink: 0; align-self: center;
+}
+.item:hover .item-delete { opacity: 1; }
+.item-delete:hover { color: #e05050; }
+
+/* Add button */
+.fab {
+  position: fixed; bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  right: calc(50% - 220px); /* center on max-width 480 layout */
+  background: var(--accent); color: white;
+  border: none; border-radius: 50px;
+  padding: .85rem 1.6rem; font-size: .9rem; font-weight: 700;
+  font-family: inherit; cursor: pointer; box-shadow: 0 4px 20px rgba(192,120,80,.4);
+  display: flex; align-items: center; gap: .5rem;
+  transition: transform .15s, box-shadow .15s;
+  z-index: 40;
+}
+.fab:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(192,120,80,.5); }
+.fab:active { transform: translateY(0); }
+@media(max-width:480px) {
+  .fab { right: 1.25rem; }
+}
+
+/* Bottom sheet / modal */
+.sheet-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.4); z-index: 100;
+  align-items: flex-end; justify-content: center;
+}
+.sheet-overlay.open { display: flex; }
+.sheet {
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  padding: 1.5rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
+  width: 100%; max-width: 480px; box-shadow: 0 -4px 30px rgba(0,0,0,.15);
+}
+.sheet-handle {
+  width: 40px; height: 4px; background: var(--border);
+  border-radius: 4px; margin: 0 auto 1.25rem;
+}
+.sheet h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; }
+.sheet input, .sheet textarea {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: .85rem 1rem;
+  font-size: .95rem; font-family: inherit; color: var(--text);
+  outline: none; transition: border-color .2s;
+}
+.sheet input:focus, .sheet textarea:focus { border-color: var(--accent); }
+.sheet textarea { resize: none; height: 80px; margin-top: .75rem; }
+.sheet-actions { display: flex; gap: .75rem; margin-top: 1rem; }
+.btn-primary {
+  flex: 1; background: var(--accent); color: white;
+  border: none; border-radius: 10px; padding: .85rem;
+  font-size: .95rem; font-weight: 700; font-family: inherit; cursor: pointer;
+  transition: background .2s;
+}
+.btn-primary:hover { background: var(--accent2); }
+.btn-ghost {
+  background: var(--surface2); color: var(--muted);
+  border: 1px solid var(--border); border-radius: 10px; padding: .85rem 1.2rem;
+  font-size: .95rem; font-weight: 600; font-family: inherit; cursor: pointer;
+}
+
+/* Sign out sheet */
+.user-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+.user-avatar-lg {
+  width: 48px; height: 48px; border-radius: 50%;
+  overflow: hidden; background: var(--accent); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; font-weight: 700; color: white;
+}
+.user-avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
+.user-name { font-weight: 600; font-size: .95rem; }
+.user-email { font-size: .8rem; color: var(--muted); }
+.btn-signout {
+  width: 100%; background: none; border: 1px solid #e05050; color: #e05050;
+  border-radius: 10px; padding: .85rem; font-size: .9rem;
+  font-weight: 600; font-family: inherit; cursor: pointer;
+  transition: background .2s;
+}
+.btn-signout:hover { background: rgba(224,80,80,.08); }
+
+/* Empty state */
+.empty { text-align: center; padding: 3rem 1rem; color: var(--muted); font-size: .9rem; }
+.empty-icon { font-size: 2.5rem; margin-bottom: .75rem; }
+
+/* Loading */
+.loading { display: flex; align-items: center; justify-content: center; min-height: 200px; }
+.spinner {
+  width: 28px; height: 28px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Confetti-like completion banner */
+.list-complete {
+  background: linear-gradient(135deg, #4a9e6a15, #3a8a5a10);
+  border: 1px solid #4a9e6a40; border-radius: 12px;
+  padding: .85rem 1rem; margin-bottom: 1rem;
+  display: flex; align-items: center; gap: .75rem;
+  font-size: .85rem; color: var(--green); font-weight: 600;
+}
+</style>
+</head>
+<body>
+
+<!-- ── SETUP SCREEN (shown if Firebase not configured) ────────── -->
+<div id="setup-screen">
+  <div style="font-size:3rem">🍼</div>
+  <h2>Almost there!</h2>
+  <p>You need to connect a free Firebase project to make the app work. Takes about 5 minutes.</p>
+  <div class="setup-box">
+    <h3>📋 Setup Steps</h3>
+    <ol>
+      <li>Go to <code>console.firebase.google.com</code></li>
+      <li>Click <strong>Add project</strong> → name it "baby-checklist"</li>
+      <li>Disable Google Analytics (not needed) → <strong>Create project</strong></li>
+      <li>Click <strong>Web</strong> icon (&lt;/&gt;) → register app → copy the <code>firebaseConfig</code> object</li>
+      <li>In the left menu → <strong>Build → Firestore Database</strong> → Create → Start in <strong>test mode</strong></li>
+      <li>Left menu → <strong>Build → Authentication</strong> → Get started → <strong>Google</strong> → Enable → Save</li>
+      <li>Open <code>index.html</code> in a text editor, find <code>{
+    apiKey: "AIzaSyBVnkb3sDPwD7NztDfKiqtdq9CzwbcZBZA",
+    authDomain: "baby-list-76471.firebaseapp.com",
+    projectId: "baby-list-76471",
+    storageBucket: "baby-list-76471.firebasestorage.app",
+    messagingSenderId: "220880870005",
+    appId: "1:220880870005:web:a8b8b69159d7e91823f63c"
+  }</code> and replace with your config</li>
+    </ol>
+  </div>
+  <p style="font-size:.8rem">Or send the config to Impax and it'll be patched in 30 seconds.</p>
+</div>
+
+<!-- ── AUTH SCREEN ────────────────────────────────────────────── -->
+<div id="auth-screen">
+  <div class="app-icon">🍼</div>
+  <div class="app-title">Baby Ready</div>
+  <div class="app-subtitle">Your shared baby prep checklist</div>
+  <button class="btn-google" id="btn-google-sign-in">
+    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+    Sign in with Google
+  </button>
+  <p style="font-size:.78rem;color:var(--muted);max-width:280px;line-height:1.6;text-align:center">
+    Both you and your partner sign in with your Google accounts to share the lists.
+  </p>
+</div>
+
+<!-- ── MAIN APP ────────────────────────────────────────────────── -->
+<div id="app">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="header-title">🍼 Baby Ready</div>
+      <div class="header-sub" id="header-sub">Loading...</div>
+    </div>
+    <button class="avatar" id="avatar-btn" title="Account"></button>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="progress-wrap">
+    <div class="progress-label">
+      <span id="progress-text">0 of 0 done</span>
+      <strong id="progress-pct">0%</strong>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="list-content" id="list-content">
+    <div class="loading"><div class="spinner"></div></div>
+  </div>
+
+  <button class="fab" id="fab">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Item
+  </button>
+
+</div>
+
+<!-- ── ADD ITEM SHEET ─────────────────────────────────────────── -->
+<div class="sheet-overlay" id="add-sheet" onclick="closeAddSheet(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h3>Add Item</h3>
+    <input type="text" id="new-item-text" placeholder="What do you need?" maxlength="120" autocomplete="off"/>
+    <textarea id="new-item-note" placeholder="Note (optional)..."></textarea>
+    <div class="sheet-actions">
+      <button class="btn-ghost" onclick="document.getElementById('add-sheet').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" onclick="addItem()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── USER SHEET ─────────────────────────────────────────────── -->
+<div class="sheet-overlay" id="user-sheet" onclick="closeUserSheet(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="user-row">
+      <div class="user-avatar-lg" id="sheet-avatar"></div>
+      <div>
+        <div class="user-name" id="sheet-name"></div>
+        <div class="user-email" id="sheet-email"></div>
+      </div>
+    </div>
+    <button class="btn-signout" onclick="signOut()">Sign Out</button>
+  </div>
+</div>
+
+<!-- ══ FIREBASE CONFIG & APP SCRIPT ════════════════════════════ -->
+<!-- Config loaded from firebase-config.js (not in git) -->
+<script src="firebase-config.js"></script>
+<script>
+// firebaseConfig is loaded from firebase-config.js
+
+// ─────────────────────────────────────────────────────────────────
+// DEFAULT CHECKLIST DATA
+// ─────────────────────────────────────────────────────────────────
+const DEFAULT_LISTS = [
+  {
+    id: 'hospital-bag',
+    name: 'Hospital Bag',
+    icon: '🏥',
+    categories: [
+      {
+        name: 'Mom',
+        items: [
+          'ID & insurance cards',
+          'Birth plan (printed)',
+          'Comfortable robe or nightgown',
+          'Nursing bra (x2)',
+          'Going-home outfit',
+          'Toiletries & hair ties',
+          'Lip balm',
+          'Phone charger + portable battery',
+          'Snacks & drinks',
+          'Pillow from home',
+          'Headphones & playlist',
+        ]
+      },
+      {
+        name: 'Baby',
+        items: [
+          'Going-home outfit (+ backup size)',
+          'Swaddle blanket',
+          'Car seat — installed & inspected',
+        ]
+      },
+      {
+        name: 'Partner',
+        items: [
+          'Change of clothes (x2)',
+          'Phone charger',
+          'Snacks & cash',
+          'Camera or phone with storage cleared',
+          'Comfort items for mom',
+        ]
+      }
+    ]
+  },
+  {
+    id: 'nursery',
+    name: 'Nursery',
+    icon: '🛏️',
+    categories: [
+      {
+        name: 'Sleep',
+        items: [
+          'Crib or bassinet',
+          'Firm crib mattress',
+          'Fitted crib sheets (x3)',
+          'Baby monitor (video recommended)',
+          'White noise machine',
+          'Nightlight (dim/amber)',
+          'Blackout curtains',
+        ]
+      },
+      {
+        name: 'Changing & Storage',
+        items: [
+          'Changing table or dresser with topper',
+          'Changing pad & covers (x2)',
+          'Diaper pail',
+          'Dresser for clothes',
+          'Hamper',
+          'Closet organizer',
+        ]
+      },
+      {
+        name: 'Comfort',
+        items: [
+          'Rocking chair or glider',
+          'Side table for nursing snacks',
+          'Rug (soft, washable)',
+        ]
+      },
+      {
+        name: 'Safety',
+        items: [
+          'Outlet covers',
+          'Furniture anchors for dresser/bookshelf',
+          'Baby-safe paint (if painting)',
+          'Smoke & CO detectors nearby',
+        ]
+      }
+    ]
+  },
+  {
+    id: 'baby-gear',
+    name: 'Baby Gear',
+    icon: '🛒',
+    categories: [
+      {
+        name: 'Getting Around',
+        items: [
+          'Infant car seat',
+          'Stroller',
+          'Baby carrier or wrap',
+          'Car seat base (second car if needed)',
+        ]
+      },
+      {
+        name: 'Feeding',
+        items: [
+          'Bottles (x6 — even if breastfeeding)',
+          'Breast pump (often covered by insurance)',
+          'Nursing pillow',
+          'Bottle brush & drying rack',
+          'Bottle warmer',
+          'Burp cloths (x8)',
+          'Bibs (x6)',
+        ]
+      },
+      {
+        name: 'Soothing & Play',
+        items: [
+          'Swing or bouncer seat',
+          'Pacifiers (try a few brands)',
+          'Play mat with arch',
+          'Soft toys & books',
+        ]
+      },
+      {
+        name: 'Bath & Health',
+        items: [
+          'Baby bathtub',
+          'Baby body wash & shampoo',
+          'Hooded towels (x3)',
+          'Baby nail clippers or file',
+          'Nasal aspirator (Frida NoseFrida recommended)',
+          'Thermometer (rectal for accuracy)',
+          'Baby lotion',
+        ]
+      },
+      {
+        name: 'Diapering',
+        items: [
+          'Diapers — newborn & size 1 stocked',
+          'Baby wipes (fragrance-free)',
+          'Diaper cream (Desitin or similar)',
+          'Portable changing pad',
+        ]
+      }
+    ]
+  },
+  {
+    id: 'life-list',
+    name: 'Life List',
+    icon: '📋',
+    categories: [
+      {
+        name: 'Admin & Legal',
+        items: [
+          'Add baby to health insurance (30-day window after birth)',
+          'Update will & beneficiaries',
+          'Apply for Social Security number (at hospital)',
+          'Order birth certificate copies (x3)',
+          'Update car insurance (new driver eventually 😄)',
+        ]
+      },
+      {
+        name: 'Finances',
+        items: [
+          'Open 529 college savings account',
+          'Review & adjust monthly budget for baby costs',
+          'Set up emergency fund (3-6 months expenses)',
+          'Check life insurance coverage',
+        ]
+      },
+      {
+        name: 'Medical',
+        items: [
+          'Choose a pediatrician',
+          'Schedule first pediatrician appointment',
+          'Know hospital route & parking',
+          'Pack hospital bag by week 36',
+          'Confirm birth plan with OB/midwife',
+        ]
+      },
+      {
+        name: 'Home & Support',
+        items: [
+          'Arrange maternity/paternity leave with employer',
+          'Research childcare options',
+          'Build meal prep freezer stock before due date',
+          'Set up meal train or accept help from family',
+          'Baby-proof main living areas',
+          'Install smoke/CO detectors on every floor',
+        ]
+      },
+      {
+        name: 'Fun Stuff',
+        items: [
+          'Plan newborn photos',
+          'Write a letter to baby',
+          'Plan birth announcements',
+          'Pick a name (or finalize it 😅)',
+          'Date night before due date',
+        ]
+      }
+    ]
+  }
+];
+
+// ─────────────────────────────────────────────────────────────────
+// APP STATE
+// ─────────────────────────────────────────────────────────────────
+let db, auth, user;
+let activeListId = DEFAULT_LISTS[0].id;
+let unsubscribe = null;
+
+// ─────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────
+function init() {
+  // Check if config was set
+  if (typeof firebaseConfig !== 'object' || !firebaseConfig.apiKey || firebaseConfig.apiKey.includes('YOUR')) {
+    document.getElementById('setup-screen').style.display = 'flex';
+    return;
+  }
+
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  auth = firebase.auth();
+
+  document.getElementById('setup-screen').style.display = 'none';
+
+  auth.onAuthStateChanged(u => {
+    if (u) {
+      user = u;
+      showApp();
+    } else {
+      user = null;
+      showAuth();
+    }
+  });
+
+  document.getElementById('btn-google-sign-in').addEventListener('click', signIn);
+  document.getElementById('avatar-btn').addEventListener('click', openUserSheet);
+  document.getElementById('fab').addEventListener('click', () => {
+    document.getElementById('new-item-text').value = '';
+    document.getElementById('new-item-note').value = '';
+    document.getElementById('add-sheet').classList.add('open');
+    setTimeout(() => document.getElementById('new-item-text').focus(), 100);
+  });
+
+  document.getElementById('new-item-text').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addItem();
+  });
+
+  document.getElementById('add-sheet').addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('add-sheet').classList.remove('open');
+  });
+}
+
+function signIn() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(err => alert('Sign in failed: ' + err.message));
+}
+
+function signOut() {
+  auth.signOut();
+  document.getElementById('user-sheet').classList.remove('open');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SHOW SCREENS
+// ─────────────────────────────────────────────────────────────────
+function showAuth() {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+
+  // Header sub
+  const firstName = user.displayName ? user.displayName.split(' ')[0] : 'there';
+  document.getElementById('header-sub').textContent = `Hey ${firstName} 👋`;
+
+  // Avatar
+  const avatarBtn = document.getElementById('avatar-btn');
+  if (user.photoURL) {
+    avatarBtn.innerHTML = `<img src="${user.photoURL}" alt="avatar"/>`;
+  } else {
+    avatarBtn.textContent = (user.displayName || user.email || 'U')[0].toUpperCase();
+  }
+
+  renderTabs();
+  loadList(activeListId);
+  seedListsIfEmpty();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────────────────────────────
+function renderTabs() {
+  const tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = DEFAULT_LISTS.map(list => `
+    <button class="tab ${list.id === activeListId ? 'active' : ''}"
+      onclick="switchList('${list.id}')">
+      ${list.icon} ${list.name}
+      <span class="tab-badge" id="badge-${list.id}">...</span>
+    </button>
+  `).join('');
+  updateAllBadges();
+}
+
+async function updateAllBadges() {
+  for (const list of DEFAULT_LISTS) {
+    const snap = await db.collection('lists').doc(list.id).collection('items').get();
+    const total = snap.size;
+    const done = snap.docs.filter(d => d.data().completed).length;
+    const badge = document.getElementById(`badge-${list.id}`);
+    if (badge) badge.textContent = total > 0 ? `${done}/${total}` : '0';
+  }
+}
+
+function switchList(listId) {
+  activeListId = listId;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const tab = document.querySelector(`[onclick="switchList('${listId}')"]`);
+  if (tab) tab.classList.add('active');
+  loadList(listId);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SEED DEFAULT ITEMS (only if list is empty)
+// ─────────────────────────────────────────────────────────────────
+async function seedListsIfEmpty() {
+  for (const list of DEFAULT_LISTS) {
+    const snap = await db.collection('lists').doc(list.id).collection('items').limit(1).get();
+    if (snap.empty) {
+      const batch = db.batch();
+      let order = 0;
+      for (const cat of list.categories) {
+        for (const text of cat.items) {
+          const ref = db.collection('lists').doc(list.id).collection('items').doc();
+          batch.set(ref, {
+            text,
+            category: cat.name,
+            completed: false,
+            completedBy: null,
+            completedAt: null,
+            addedBy: 'system',
+            order: order++,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+      }
+      await batch.commit();
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LOAD LIST (real-time)
+// ─────────────────────────────────────────────────────────────────
+function loadList(listId) {
+  if (unsubscribe) unsubscribe();
+
+  document.getElementById('list-content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  unsubscribe = db.collection('lists').doc(listId).collection('items')
+    .orderBy('order')
+    .onSnapshot(snap => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderList(listId, items);
+      updateProgress(items);
+      updateAllBadges();
+    }, err => {
+      console.error(err);
+      document.getElementById('list-content').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Error loading list. Check Firestore rules.</div>';
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER LIST
+// ─────────────────────────────────────────────────────────────────
+function renderList(listId, items) {
+  const listDef = DEFAULT_LISTS.find(l => l.id === listId);
+  const content = document.getElementById('list-content');
+
+  if (items.length === 0) {
+    content.innerHTML = `<div class="empty"><div class="empty-icon">${listDef.icon}</div>Nothing here yet — tap + Add Item to get started!</div>`;
+    return;
+  }
+
+  const done = items.filter(i => i.completed).length;
+  const allDone = done === items.length && items.length > 0;
+
+  // Group by category
+  const byCategory = {};
+  const noCatItems = [];
+  items.forEach(item => {
+    if (item.category) {
+      if (!byCategory[item.category]) byCategory[item.category] = [];
+      byCategory[item.category].push(item);
+    } else {
+      noCatItems.push(item);
+    }
+  });
+
+  let html = '';
+  if (allDone) {
+    html += `<div class="list-complete">✅ All done — you're ready! Amazing work! 🎉</div>`;
+  }
+
+  const renderItem = item => `
+    <div class="item ${item.completed ? 'done' : ''}" id="item-${item.id}" onclick="toggleItem('${listId}', '${item.id}', ${item.completed})">
+      <div class="checkbox">
+        <svg class="check-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="item-body">
+        <div class="item-text">${esc(item.text)}</div>
+        ${item.completed && item.completedBy ? `<div class="item-meta">✓ ${esc(item.completedBy)} ${item.completedAt ? '· ' + timeAgo(item.completedAt.toDate ? item.completedAt.toDate() : new Date(item.completedAt)) : ''}</div>` : ''}
+        ${item.note ? `<div class="item-meta" style="color:var(--muted);margin-top:2px">${esc(item.note)}</div>` : ''}
+      </div>
+      <button class="item-delete" onclick="deleteItem(event, '${listId}', '${item.id}')" title="Remove">×</button>
+    </div>
+  `;
+
+  // Render categories in defined order, then extras
+  const catOrder = listDef.categories.map(c => c.name);
+  const extraCats = Object.keys(byCategory).filter(c => !catOrder.includes(c));
+  [...catOrder, ...extraCats].forEach(cat => {
+    if (byCategory[cat] && byCategory[cat].length > 0) {
+      html += `<div class="category-label">${esc(cat)}</div>`;
+      html += byCategory[cat].map(renderItem).join('');
+    }
+  });
+  if (noCatItems.length > 0) {
+    if (Object.keys(byCategory).length > 0) html += `<div class="category-label">Added by you</div>`;
+    html += noCatItems.map(renderItem).join('');
+  }
+
+  content.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// PROGRESS
+// ─────────────────────────────────────────────────────────────────
+function updateProgress(items) {
+  const total = items.length;
+  const done = items.filter(i => i.completed).length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById('progress-text').textContent = `${done} of ${total} done`;
+  document.getElementById('progress-pct').textContent = `${pct}%`;
+  const fill = document.getElementById('progress-fill');
+  fill.style.width = `${pct}%`;
+  if (pct === 100) fill.classList.add('done');
+  else fill.classList.remove('done');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TOGGLE ITEM
+// ─────────────────────────────────────────────────────────────────
+async function toggleItem(listId, itemId, currentState) {
+  const newState = !currentState;
+  await db.collection('lists').doc(listId).collection('items').doc(itemId).update({
+    completed: newState,
+    completedBy: newState ? (user.displayName || user.email.split('@')[0]) : null,
+    completedAt: newState ? firebase.firestore.FieldValue.serverTimestamp() : null,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ADD ITEM
+// ─────────────────────────────────────────────────────────────────
+async function addItem() {
+  const text = document.getElementById('new-item-text').value.trim();
+  if (!text) return;
+  const note = document.getElementById('new-item-note').value.trim();
+
+  // Get current max order
+  const snap = await db.collection('lists').doc(activeListId).collection('items')
+    .orderBy('order', 'desc').limit(1).get();
+  const maxOrder = snap.empty ? 0 : (snap.docs[0].data().order || 0) + 1;
+
+  await db.collection('lists').doc(activeListId).collection('items').add({
+    text,
+    note: note || null,
+    category: null,
+    completed: false,
+    completedBy: null,
+    completedAt: null,
+    addedBy: user.displayName || user.email.split('@')[0],
+    order: maxOrder,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  document.getElementById('new-item-text').value = '';
+  document.getElementById('new-item-note').value = '';
+  document.getElementById('add-sheet').classList.remove('open');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// DELETE ITEM
+// ─────────────────────────────────────────────────────────────────
+async function deleteItem(e, listId, itemId) {
+  e.stopPropagation();
+  await db.collection('lists').doc(listId).collection('items').doc(itemId).delete();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// USER SHEET
+// ─────────────────────────────────────────────────────────────────
+function openUserSheet() {
+  const avatarEl = document.getElementById('sheet-avatar');
+  if (user.photoURL) {
+    avatarEl.innerHTML = `<img src="${user.photoURL}" alt="avatar"/>`;
+  } else {
+    avatarEl.textContent = (user.displayName || user.email || 'U')[0].toUpperCase();
+  }
+  document.getElementById('sheet-name').textContent = user.displayName || 'User';
+  document.getElementById('sheet-email').textContent = user.email;
+  document.getElementById('user-sheet').classList.add('open');
+}
+
+function closeAddSheet(e) {
+  if (e.target === document.getElementById('add-sheet')) {
+    document.getElementById('add-sheet').classList.remove('open');
+  }
+}
+function closeUserSheet(e) {
+  if (e.target === document.getElementById('user-sheet')) {
+    document.getElementById('user-sheet').classList.remove('open');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────────────────────────
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function timeAgo(date) {
+  const secs = Math.floor((new Date() - date) / 1000);
+  if (secs < 60) return 'just now';
+  if (secs < 3600) return `${Math.floor(secs/60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs/3600)}h ago`;
+  return `${Math.floor(secs/86400)}d ago`;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// GO
+// ─────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
